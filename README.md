@@ -1,8 +1,9 @@
 # CoronaVirus
 
-<iframe width="900" height="800" frameborder="0" scrolling="no" src="//plotly.com/~mosakbary/12.embed"></iframe>
+First, I got the data from the following site:
+https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data/csse_covid_19_time_series
 
-<div>
-    <a href="https://plotly.com/~mosakbary/12/?share_key=2k4kCDEZrkndNQoqUzNQZG" target="_blank" title="Iran_Chart" style="display: block; text-align: center;"><img src="https://plotly.com/~mosakbary/12.png?share_key=2k4kCDEZrkndNQoqUzNQZG" alt="Iran_Chart" style="max-width: 100%;width: 600px;"  width="600" onerror="this.onerror=null;this.src='https://plotly.com/404.png';" /></a>
-    <script data-plotly="mosakbary:12" sharekey-plotly="2k4kCDEZrkndNQoqUzNQZG" src="https://plotly.com/embed.js" async></script>
-</div>
+Then group by Country/Region and drop columns Lat and Long.
+Now convert date.
+
+Using plotly functions, I drew a global and country chart for people confirmed, dead, recovered, and active.
