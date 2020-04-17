@@ -1,0 +1,431 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from matplotlib.pyplot import figure
+import matplotlib
+import matplotlib.animation as animation
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+
+plt.rcParams.update({'font.size': 14})
+
+# Get data and preparation
+
+data_c = pd.read_csv('https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv')
+data_r = pd.read_csv('https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv')
+data_d = pd.read_csv('https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv')
+
+data_c3=data_c.groupby(data_c['Country/Region']).sum()
+data_r3=data_r.groupby(data_r['Country/Region']).sum()
+data_d3=data_d.groupby(data_d['Country/Region']).sum()
+
+data_c3.drop(['Lat','Long'], axis=1, inplace=True)
+data_r3.drop(['Lat','Long'], axis=1, inplace=True)
+data_d3.drop(['Lat','Long'], axis=1, inplace=True)
+
+# Convert date
+
+def Convert_Date(c):
+    c=c.split('/')
+    c=list(map(int,c))
+    c[0], c[1] = c[1], c[0]
+    c[0], c[2] = c[2], c[0]
+    c[0]=c[0]+2000
+    a=[31,28,31,30,31,30,31,31,30,31,30,31]
+    b=[1, 5, 9, 13, 17, 22, 26, 30]
+    d=621
+    if c[1]<=2 or c[1] <= 3 and c[2] < 21 :
+        d+=1
+    t=0
+    for i in range((c[1]-1)):
+        t+=a[i]
+    t+=c[2]
+    n=[0,0,0]
+    n[0]=c[0]-d
+    if t <= 79 :
+        t+=10
+        n[1]= (t // 30) + 10
+        n[2]= (t % 30) if t % 30 !=0 else 30
+        if n[0] % 33 in b :
+            n[2]+=1
+    else :
+        t-=79
+        if t > 186 :
+            n[1]= (t // 30) + 1
+            n[2]= (t % 30) if t % 30 !=0 else 30
+        else :
+            n[1]= (t // 31) + 1 if t >= 31 else 1
+            n[2]= (t % 31) if t % 31 !=0 else 31
+    n[0]=n[0]-1300
+    n=list(map(str,n))
+    n="/".join(n)
+    return n
+
+c=[Convert_Date(i) for i in data_c3.columns]
+data_c3.columns=c
+c=[Convert_Date(i) for i in data_r3.columns]
+data_r3.columns=c
+c=[Convert_Date(i) for i in data_d3.columns]
+data_d3.columns=c
+
+# Active people
+data_a=data_c3-data_r3-data_d3
+
+
+#World Chart
+
+print ('Total confirmed cases: %.d' %data_c.iloc[:,-1].sum())
+
+print ('Total recovered cases: %.d' %data_r.iloc[:,-1].sum())
+       
+print ('Total death cases: %.d' %data_d.iloc[:,-1].sum())
+
+print ('Total active cases: %.d' %data_a.iloc[:,-1].sum())
+
+# Create figure
+fig = go.Figure()
+
+# Add traces, one for each slider step
+
+for step in data_c3.columns:
+    fig.add_trace(
+        go.Scatter(
+            visible=False,
+            mode='lines+markers',
+            line=dict(color="Red"),
+            name='Confirmed',
+            x=data_c3.columns,
+            y=list(data_c3.iloc[:].sum()[data_c3.columns[0]:step])))
+for step in data_r3.columns:
+    fig.add_trace(
+        go.Scatter(
+            visible=False,
+            mode='lines+markers',
+            line=dict(color="Green"),
+            name='Recovered',
+            x=data_r3.columns,
+            y=list(data_r3.iloc[:].sum()[data_r3.columns[0]:step])))
+for step in data_d3.columns:
+    fig.add_trace(
+        go.Scatter(
+            visible=False,
+            mode='lines+markers',
+            line=dict(color="Black"),
+            name='Deaths',
+            x=data_d3.columns,
+            y=list(data_d3.iloc[:].sum()[data_d3.columns[0]:step])))
+for step in data_a.columns:
+    fig.add_trace(
+        go.Scatter(
+            visible=False,
+            mode='lines+markers',
+            line=dict(color="Orange"),
+            name='Actives',
+            x=data_a.columns,
+            y=list(data_a.iloc[:].sum()[data_a.columns[0]:step])))
+    
+
+fig.data[int(len(data_c3.columns)/5)].visible = True
+fig.data[int(len(data_c3.columns)/5)+len(data_c3.columns)].visible = True
+fig.data[int(len(data_c3.columns)/5)+2*len(data_c3.columns)].visible = True
+fig.data[int(len(data_c3.columns)/5)+3*len(data_c3.columns)].visible = True
+
+
+
+# Create and add slider
+steps = []
+for i in range(len(data_c3.columns)):
+    step = dict(
+        method="restyle",
+        label=data_c3.columns[i],
+        args=["visible", [False] * len(data_c3.columns)],
+    )
+    step["args"][1][i] = True  # Toggle i'th trace to "visible"
+    steps.append(step)
+
+sliders = [dict(
+    active=int(len(data_c3.columns)/5),
+    currentvalue={"prefix": "Date: "},
+    pad={"t": 70},
+    steps=steps
+)]
+
+fig.update_yaxes(range=[0, data_c3.iloc[:].sum()[-1]])
+fig.update_xaxes(range=[0,np.max(data_c3.count(axis='columns'))])
+
+fig.update_layout(
+    sliders=sliders,
+    title='World Chart',
+    xaxis_title='Date',
+    yaxis_title='Number of persons'
+)
+
+fig.show()
+
+
+# Compare the charts in several countries
+import random
+fig=go.Figure()
+def Chart_Liner_New(Place):
+    fig = make_subplots(rows=2, cols=2, 
+                        subplot_titles=("Confirmed", "Recovered", "Deaths", "Actives"), vertical_spacing=0.3)
+    colors=['aqua', 'aquamarine', 'black', 'blue',
+            'blueviolet', 'brown', 'burlywood', 'cadetblue',
+            'chartreuse', 'chocolate', 'coral', 'cornflowerblue',
+            'crimson', 'cyan', 'darkblue', 'darkcyan',
+            'darkgoldenrod', 'darkgreen',
+            'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange',
+            'darkorchid', 'darkred', 'darksalmon', 'darkseagreen',
+            'darkslateblue', 'darkslategrey',
+            'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue',
+            'dimgray', 'dimgrey', 'dodgerblue', 'firebrick',
+            'forestgreen', 'fuchsia',
+            'gold', 'gray', 'green',
+            'greenyellow', 'hotpink', 'indianred', 'indigo',
+            'lightpink', 'lightsalmon', 'lightseagreen',
+            'lightskyblue', 'lightslategray', 'lightslategrey',
+            'lightsteelblue', 'lightyellow', 'lime', 'limegreen',
+            'magenta', 'maroon', 'mediumturquoise', 'mediumvioletred', 'midnightblue',
+            'olive', 'olivedrab', 'orange', 'orangered',
+            'orchid', 'purple', 'red', 'rosybrown',
+            'royalblue', 'rebeccapurple', 'saddlebrown', 'salmon',
+            'sandybrown', 'seagreen', 'sienna',
+            'skyblue', 'slateblue', 'slategray',
+            'tomato', 'turquoise', 'violet', 'yellow', 'yellowgreen']
+    colors_n=[random.choice(colors) for i in range(len(Place))]
+    count=0
+    # Add traces, one for each slider step
+    for p in Place:
+        print("\n\n"+p)
+        print ('Total confirmed in '+p+': %.d' %data_c3.loc[p][-1].sum())
+        print ('Total recovered in '+p+': %.d' %data_r3.loc[p][-1].sum())   
+        print ('Total death in '+p+': %.d' %data_d3.loc[p][-1].sum())
+        print ('Total active in '+p+': %.d' %data_a.loc[p][-1].sum())
+        for step in data_c3.columns:
+            fig.append_trace(
+                go.Scatter(
+                    visible=False,
+                    mode='lines+markers',
+                    marker_symbol=count,
+                    marker_size=7,
+                    name=p,
+                    line=dict(color=colors_n[count]),
+                    x=data_c3.columns,
+                    y=list(data_c3.loc[p][data_c3.columns[0]:step])), row=1, col=1)
+        for step in data_r3.columns:
+            fig.append_trace(
+                go.Scatter(
+                    visible=False,   
+                    showlegend = False,
+                    mode='lines+markers',
+                    marker_symbol=count,
+                    marker_size=7,
+                    name=p,
+                    line=dict(color=colors_n[count]),
+                    x=data_r3.columns,
+                    y=list(data_r3.loc[p][data_r3.columns[0]:step])), row=1, col=2)
+        for step in data_d3.columns:
+            fig.append_trace(
+                go.Scatter(
+                    visible=False,
+                    showlegend = False,
+                    mode='lines+markers',
+                    marker_symbol=count,
+                    marker_size=7,
+                    name=p,
+                    line=dict(color=colors_n[count]),
+                    x=data_d3.columns,
+                    y=list(data_d3.loc[p][data_d3.columns[0]:step])), row=2, col=1)
+        for step in data_a.columns:
+            fig.append_trace(
+                go.Scatter(
+                    visible=False,
+                    showlegend = False,
+                    mode='lines+markers',
+                    marker_symbol=count,
+                    marker_size=7,
+                    name=p,
+                    line=dict(color=colors_n[count]),
+                    x=data_a.columns,
+                    y=list(data_a.loc[p][data_a.columns[0]:step])), row=2, col=2)
+        count+=1
+    ac=0;
+    for p in Place:
+        for i in range(len(data_c3.columns)):
+            if data_c3.loc[p][i]!=0 and ac < i :
+                ac=i
+                break;
+           
+    fig.data[ac].visible = True
+    fig.data[ac+len(data_c3.columns)].visible = True
+    fig.data[ac+2*len(data_c3.columns)].visible = True
+    fig.data[ac+3*len(data_c3.columns)].visible = True
+
+
+    # Create and add slider
+    steps = []
+    for i in range(len(data_c3.columns)):
+        step = dict(
+            method="restyle",
+            label=data_c3.columns[i],
+            args=["visible", [False] * len(data_c3.columns)],
+        )
+        step["args"][1][i] = True  # Toggle i'th trace to "visible"
+        steps.append(step)
+
+    sliders = [dict(
+        active=ac,
+        currentvalue={"prefix": "Date: "},
+        pad={"t": 70},
+        steps=steps
+    )]
+    
+    fig.update_yaxes(range=[0, max([data_c3.loc[p][-1] for p in Place])], title_text="Number of persons", row=1, col=1)
+    fig.update_xaxes(range=[0, np.max(data_c3.count(axis='columns'))], row=1, col=1)
+    
+    fig.update_yaxes(range=[0, max([data_r3.loc[p][-1] for p in Place])], row=1, col=2)
+    fig.update_xaxes(range=[0, np.max(data_r3.count(axis='columns'))], row=1, col=2)
+    
+    fig.update_yaxes(range=[0, max([data_d3.loc[p][-1] for p in Place])], title_text="Number of persons", row=2, col=1)
+    fig.update_xaxes(range=[0, np.max(data_d3.count(axis='columns'))], title_text="Date", row=2, col=1)
+    
+    fig.update_yaxes(range=[0, max([data_a.loc[p][-1] for p in Place])], row=2, col=2)
+    fig.update_xaxes(range=[0, np.max(data_a.count(axis='columns'))], title_text="Date", row=2, col=2)
+    Place_t=''
+    for p in Place:
+        Place_t+=p+", "
+    fig.update_layout(
+        sliders=sliders, autosize=True,
+        title=Place_t+' Chart'
+    )
+    
+    #fig.show()
+    return fig
+    
+fig=Chart_Liner_New(["Iran"])
+fig.show()
+
+data_i=pd.DataFrame(data_c3.index, index=[i+1 for i in range(len(data_c3.index))])
+pd.set_option('display.max_rows', None)
+print(data_i)
+Place=[]
+try:
+    answer=input("Select the number of countries to draw the chart? (Example: 1,2,3,...): ")
+    answer=answer.split(',')
+    answer=list(map(int,answer))
+    for s in answer:
+        if s <= len(data_i.index) and s>0:
+            val = True 
+        else:
+            val=False
+            break
+    if val==True:
+        for i in answer:
+            Place.append(data_i.iloc[i-1][0])
+        fig=Chart_Liner_New(Place)
+        fig.show()
+    else:
+        print("Incorrect input")
+except ValueError:
+    print("Incorrect input")
+    
+    
+# To check the chart of only one country
+fig = go.Figure()
+
+def Chart_Liner(Place,count):
+    print("\n\n"+Place)
+    print ('Total confirmed in '+Place+': %.d' %data_c3.loc[Place][-1].sum())
+    print ('Total recovered in '+Place+': %.d' %data_r3.loc[Place][-1].sum())   
+    print ('Total death in '+Place+': %.d' %data_d3.loc[Place][-1].sum())
+    print ('Total active in '+Place+': %.d' %data_a.loc[Place][-1].sum())
+    # Add traces, one for each slider step
+
+    for step in data_c3.columns:
+        fig.add_trace(
+            go.Scatter(
+                visible=False,
+                mode='lines+markers',
+                marker_symbol=count,
+                marker_size=7,
+                line=dict(color="Red"),
+                name='Confirmed',
+                x=data_c3.columns,
+                y=list(data_c3.loc[Place][data_c3.columns[0]:step])))
+    for step in data_r3.columns:
+        fig.add_trace(
+            go.Scatter(
+                visible=False,
+                mode='lines+markers',
+                marker_symbol=count,
+                marker_size=7,
+                line=dict(color="Green"),
+                name='Recovered',
+                x=data_r3.columns,
+                y=list(data_r3.loc[Place][data_r3.columns[0]:step])))
+    for step in data_d3.columns:
+        fig.add_trace(
+            go.Scatter(
+                visible=False,
+                mode='lines+markers',
+                marker_symbol=count,
+                marker_size=7,
+                line=dict(color="Black"),
+                name='Deaths',
+                x=data_d3.columns,
+                y=list(data_d3.loc[Place][data_d3.columns[0]:step])))
+    for step in data_a.columns:
+        fig.add_trace(
+            go.Scatter(
+                visible=False,
+                mode='lines+markers',
+                marker_symbol=count,
+                marker_size=7,
+                line=dict(color="Orange"),
+                name='Actives',
+                x=data_a.columns,
+                y=list(data_a.loc[Place][data_a.columns[0]:step])))
+
+    for i in range(len(data_c3.columns)):
+        if data_c3.loc[Place][i]!=0 :
+            ac=i
+            break;
+    fig.data[ac].visible = True
+    fig.data[ac+len(data_c3.columns)].visible = True
+    fig.data[ac+2*len(data_c3.columns)].visible = True
+    fig.data[ac+3*len(data_c3.columns)].visible = True
+
+
+    # Create and add slider
+    steps = []
+    for i in range(len(data_c3.columns)):
+        step = dict(
+            method="restyle",
+            label=data_c3.columns[i],
+            args=["visible", [False] * len(data_c3.columns)],
+        )
+        step["args"][1][i] = True  # Toggle i'th trace to "visible"
+        steps.append(step)
+
+    sliders = [dict(
+        active=ac,
+        currentvalue={"prefix": "Date: "},
+        pad={"t": 70},
+        steps=steps
+    )]
+    
+    fig.update_yaxes(range=[0, data_c3.loc[Place][-1]])
+    fig.update_xaxes(range=[0,np.max(data_c3.count(axis='columns'))])
+
+    fig.update_layout(
+        sliders=sliders,
+        title=Place+' Chart',
+        xaxis_title='Date',
+        yaxis_title='Number of persons'
+    )
+
+    fig.show()
+    
+Chart_Liner("Iran",0)
