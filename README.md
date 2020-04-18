@@ -7,3 +7,7 @@ Then group by Country/Region and drop columns Lat and Long.
 Now convert date.
 
 Using plotly functions, I drew a global and country chart for people confirmed, dead, recovered, and active.
+
+Show result in: http://maliakbarzadeh.gigfa.com/
+
+I got help from this kernel: https://www.kaggle.com/holfyuen/coronavirus-2019-20-visualization
